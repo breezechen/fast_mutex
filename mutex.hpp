@@ -14,33 +14,29 @@ namespace br {
     {
     public:
         locker(mutex& m, bool shared = false) : _m(m), _write(!shared) {
-            if (_write) {
-                while (InterlockedCompareExchange(&_m.sem, -1, 0) != 0) {
-                    _m.askwrite = true;
-                    Sleep(1);
+            if (_write) { // big brother
+                while (InterlockedCompareExchange(&_m.sem, -1, 0) != 0) { //someone taking my toy
+                    _m.askwrite = true; // I need the toy right now!!!
+                    Sleep(1); // wait
                 }
-                _m.askwrite = false;
-            }
-            else {
-                do {
-                    if (_m.askwrite) {
+                _m.askwrite = false; // your buddies can competing for it now
+            } else {
+                while(1) {
+                    if (_m.askwrite) { // the big brother is looking for it, stand by
                         Sleep(1);
-                    }
-                    else if (InterlockedExchangeAdd(&_m.sem, 2) <= -1) {
-                        InterlockedExchangeAdd(&_m.sem, -2);
+                    } else if (InterlockedExchangeAdd(&_m.sem, 2) <= -1) { // big brother is enjoying
+                        InterlockedExchangeAdd(&_m.sem, -2); // sorry, I'm not mean it, step back
                         Sleep(1);
-                    }
-                    else {
+                    } else { // we can share it now
                         break;
                     }
-                } while (1);
+                };
             }
         }
         ~locker() {
             if (_write) {
                 InterlockedExchangeAdd(&_m.sem, 1);
-            }
-            else {
+            } else {
                 InterlockedExchangeAdd(&_m.sem, -2);
             }
         }
