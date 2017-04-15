@@ -18,6 +18,8 @@ int tmp;
 const int num_threads = 12;
 const int num_times = 1000000;
 
+bool stop_read = false;
+
 void test1()
 {
     std::vector<std::thread> threads;
@@ -45,7 +47,19 @@ void test1()
 
 void test10()
 {
+	stop_read = false;
+	std::vector<std::thread> read_threads;
+	for (int i = 0; i < num_threads; i++) {
+		read_threads.emplace_back(std::thread([]() {
+			while (!stop_read) {
+				br::locker lock(m, true);
+				tmp = num;
+			}
+		}));
+	}
+
 	std::vector<std::thread> threads;
+	
 	auto start = std::chrono::system_clock::now();
 	for (int i = 0; i < num_threads; i++) {
 		threads.emplace_back(std::thread([]() {
@@ -56,24 +70,20 @@ void test10()
 		}));
 	}
 
-	for (int i = 0; i < num_threads; i++) {
-		threads.emplace_back(std::thread([]() {
-			for (int i = 0; i < num_times; i++) {
-				br::locker lock(m, true);
-				tmp = num;
-			}
-		}));
-	}
-
 	for (auto& t : threads) {
 		t.join();
 	}
+	stop_read = true;
+
 	auto end = std::chrono::system_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	std::cout << num << "\tcost: " << duration.count() << "\t"
 		<< double(duration.count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
 		<< std::endl;
 
+	for (auto& t : read_threads) {
+		t.join();
+	}
 }
 
 
@@ -84,7 +94,7 @@ void test2()
     for (int i = 0; i < num_threads; i++) {
         threads.emplace_back(std::thread([]() {
             for (int i = 0; i < num_times; i++) {
-                std::unique_lock<std::shared_mutex> lock(ssm);
+                std::unique_lock<std::mutex> lock(sm);
                 num += 1;
             }
         }));
@@ -102,6 +112,17 @@ void test2()
 
 void test20()
 {
+	stop_read = false;
+	std::vector<std::thread> read_threads;
+	for (int i = 0; i < num_threads; i++) {
+		read_threads.emplace_back(std::thread([]() {
+			while (!stop_read) {
+				std::shared_lock<std::shared_mutex> lock(ssm);
+				tmp = num;
+			}
+		}));
+	}
+
 	std::vector<std::thread> threads;
 	auto start = std::chrono::system_clock::now();
 	for (int i = 0; i < num_threads; i++) {
@@ -113,23 +134,20 @@ void test20()
 		}));
 	}
 
-	for (int i = 0; i < num_threads; i++) {
-		threads.emplace_back(std::thread([]() {
-			for (int i = 0; i < num_times; i++) {
-				std::shared_lock<std::shared_mutex> lock(ssm);
-				tmp = num;
-			}
-		}));
-	}
-
 	for (auto& t : threads) {
 		t.join();
 	}
+	stop_read = true;
 	auto end = std::chrono::system_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	std::cout << num << "\tcost: " << duration.count() << "\t"
 		<< double(duration.count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
 		<< std::endl;
+
+
+	for (auto& t : read_threads) {
+		t.join();
+	}
 }
 
 void test3()
@@ -139,7 +157,7 @@ void test3()
     for (int i = 0; i < num_threads; i++) {
         threads.emplace_back(std::thread([]() {
             for (int i = 0; i < num_times; i++) {
-                std::lock_guard<std::shared_mutex> lock(ssm);
+                std::lock_guard<std::mutex> lock(sm);
                 num += 1;
             }
         }));
@@ -157,22 +175,24 @@ void test3()
 
 void test30()
 {
-	std::vector<std::thread> threads;
-	auto start = std::chrono::system_clock::now();
+	stop_read = false;
+	std::vector<std::thread> read_threads;
 	for (int i = 0; i < num_threads; i++) {
-		threads.emplace_back(std::thread([]() {
-			for (int i = 0; i < num_times; i++) {
-				std::lock_guard<std::shared_mutex> lock(ssm);
-				num += 1;
+		read_threads.emplace_back(std::thread([]() {
+			while (!stop_read) {
+				std::shared_lock<std::shared_mutex> lock(ssm);
+				tmp = num;
 			}
 		}));
 	}
 
+	std::vector<std::thread> threads;
+	auto start = std::chrono::system_clock::now();
 	for (int i = 0; i < num_threads; i++) {
 		threads.emplace_back(std::thread([]() {
-			for (int i = 0; i < num_times; i++) {
-				std::shared_lock<std::shared_mutex> lock(ssm);
-				tmp = num;
+			while (!stop_read) {
+				std::lock_guard<std::shared_mutex> lock(ssm);
+				num += 1;
 			}
 		}));
 	}
@@ -180,11 +200,16 @@ void test30()
 	for (auto& t : threads) {
 		t.join();
 	}
+	stop_read = true;
 	auto end = std::chrono::system_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	std::cout << num << "\tcost: " << duration.count() << "\t"
 		<< double(duration.count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
 		<< std::endl;
+
+	for (auto& t : read_threads) {
+		t.join();
+	}
 }
 
 int main()
