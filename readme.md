@@ -1,6 +1,6 @@
 # fast_mutex
 
-目前仅支持windows平台，有时间要做成跨平台的。
+目前支持x86/x64指令集，gcc/msvc编译器
 
 测试代码：
 
