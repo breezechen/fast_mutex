@@ -15,7 +15,7 @@ namespace br {
 #define __br_fetch_and_sub(x, v) InterlockedExchangeAdd(x, -v) 
 #endif
 
-    void msleep(int ms)
+    static void msleep(int ms)
     {
 #ifdef WIN32
         Sleep(ms);
