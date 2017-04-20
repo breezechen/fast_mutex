@@ -8,11 +8,13 @@ namespace br {
 #define __br_compare_and_swap(x, o, n) __sync_val_compare_and_swap(x, o, n)
 #define __br_fetch_and_add(x, v) __sync_fetch_and_add(x, v)
 #define __br_fetch_and_sub(x, v) __sync_fetch_and_sub(x, v)
+#define __br_set(x,v)   __sync_lock_test_and_set(x, v)
 #elif defined(_MSC_VER)
 #include <windows.h>
 #define __br_compare_and_swap(x, o, n) InterlockedCompareExchange(x, n, o)   
 #define __br_fetch_and_add(x, v) InterlockedExchangeAdd(x, v)
 #define __br_fetch_and_sub(x, v) InterlockedExchangeAdd(x, -v) 
+#define __br_set(x,v)   InterlockedExchange(x, v)
 #endif
 
     static void msleep(int ms)
@@ -65,6 +67,46 @@ namespace br {
     private:
         mutex& _m;
         bool _write;
+    };
+
+    class condition_variable
+    {
+    public:
+        condition_variable() : count(0), signal(0) {}
+        ~condition_variable() {
+            while (count > 0) {
+                notify_one();
+            }
+        }
+
+        bool wait(unsigned long timeout_ms = -1) {
+            bool ret = true;
+            __br_fetch_and_add(&count, 1);
+            clock_t start = clock();
+            while (__br_fetch_and_sub(&signal, 1) <= 0) {
+                __br_fetch_and_add(&signal, 1);
+                clock_t now = clock();
+                if ((unsigned long)((now - start) * 1000 / CLOCKS_PER_SEC )> timeout_ms) {
+                    ret = false;
+                    break;
+                }
+                msleep(1);
+            }
+            __br_fetch_and_sub(&count, 1);
+            return ret;
+        }
+
+        void notify_one() {
+            __br_fetch_and_add(&signal, 1);
+        }
+
+        void notify_all() {
+            __br_set(&signal, count);
+        }
+
+    private:
+        volatile long count;
+        volatile long signal;
     };
 }
 
