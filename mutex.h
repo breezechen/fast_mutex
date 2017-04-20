@@ -1,6 +1,6 @@
 #ifndef _BR_MUTEX_LOCKER_H_
 #define _BR_MUTEX_LOCKER_H_
-#include <time.h>
+
 #if defined(__GNUC__) || defined(__GNUG__)
 #include <time.h>
 #define __br_compare_and_swap(x, o, n) __sync_val_compare_and_swap(x, o, n)
@@ -9,6 +9,7 @@
 #define __br_set(x,v)   __sync_lock_test_and_set(x, v)
 #elif defined(_MSC_VER)
 #include <windows.h>
+#include <time.h>
 #define __br_compare_and_swap(x, o, n) InterlockedCompareExchange(x, n, o)
 #define __br_fetch_and_add(x, v) InterlockedExchangeAdd(x, v)
 #define __br_fetch_and_sub(x, v) InterlockedExchangeAdd(x, -v)

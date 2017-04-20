@@ -10,6 +10,7 @@ namespace br {
 #define __br_fetch_and_sub(x, v) __sync_fetch_and_sub(x, v)
 #define __br_set(x,v)   __sync_lock_test_and_set(x, v)
 #elif defined(_MSC_VER)
+#include <time.h>
 #include <windows.h>
 #define __br_compare_and_swap(x, o, n) InterlockedCompareExchange(x, n, o)   
 #define __br_fetch_and_add(x, v) InterlockedExchangeAdd(x, v)
